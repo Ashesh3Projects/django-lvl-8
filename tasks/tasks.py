@@ -16,7 +16,7 @@ def get_email_content(user):
     for status in STATUS_CHOICES:
         tasks = all_tasks.filter(status=status[0])
         if tasks.exists():
-            email_content += f"\n{len(tasks)} {status[1].lower()} task(s).\n"
+            email_content += f"\n{tasks.count()} {status[1].lower()} task(s).\n"
     email_content += "\n\n"
     email_content += "Thank you!"
 
@@ -25,11 +25,13 @@ def get_email_content(user):
 
 @periodic_task(run_every=timedelta(seconds=30))
 def send_reports():
-    new_and_missing_users = new_and_missing_users = UserPreferences.objects.filter(Q(reminder_enabled=True) & (
-        Q(last_sent__lte=make_aware(datetime.now() - timedelta(hours=24))) | Q(last_sent=None)))
+    current_time = make_aware(datetime.now())
+    reminder_enabled = Q(reminder_enabled=True)
+    missed_last_reminder = Q(last_sent__lte=make_aware(datetime.now() - timedelta(hours=24)))
+    reminder_fail = Q(last_sent=None) & Q(reminder_time__lte=current_time)
+    reminder_in_last_30_secs = Q(reminder_time__range=(current_time - timedelta(seconds=30), current_time))
 
-    if len(new_and_missing_users) == 0:
-        print("No matching users found")
+    new_and_missing_users = UserPreferences.objects.filter((reminder_enabled) & (missed_last_reminder | reminder_fail | reminder_in_last_30_secs))
 
     for user_prefs in new_and_missing_users:
         print("Processing", user_prefs.user)
