@@ -135,7 +135,5 @@ NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
 BROKER_URL = "redis://localhost:6379"
 CELERY_RESULT_BACKEND = "redis://localhost:6379"
 
-CELERYBEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
-
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_HOST_USER = "tasks@task_manager.org"
