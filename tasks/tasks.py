@@ -25,20 +25,17 @@ def get_email_content(user):
 
 @periodic_task(run_every=timedelta(seconds=30))
 def send_reports():
-    current_time = make_aware(datetime.now())
     reminder_enabled = Q(reminder_enabled=True)
-    missed_last_reminder = Q(last_sent__lte=make_aware(datetime.now() - timedelta(hours=24)))
-    reminder_fail = Q(last_sent=None) & Q(reminder_time__lte=current_time)
-    reminder_in_last_30_secs = Q(reminder_time__range=(current_time - timedelta(seconds=30), current_time))
+    old_reminders = Q(last_sent__lte=make_aware(datetime.now() - timedelta(hours=24)))
 
-    new_and_missing_users = UserPreferences.objects.filter((reminder_enabled) & (missed_last_reminder | reminder_fail | reminder_in_last_30_secs))
+    new_and_missing_users = UserPreferences.objects.filter(reminder_enabled & old_reminders)
 
     for user_prefs in new_and_missing_users:
         print("Processing", user_prefs.user)
         try:
             email_content = get_email_content(user_prefs.user)
             send_mail("Tasks summary", email_content, "tasks@task_manager.org", [user_prefs.user.email], fail_silently=False,)
-            user_prefs.last_sent = make_aware(datetime.now())
+            user_prefs.last_sent = make_aware(datetime.combine(datetime.now(), user_prefs.reminder_time))
             user_prefs.save()
         except SMTPException as e:
             print("Error sending email", e)

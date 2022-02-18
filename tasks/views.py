@@ -1,14 +1,17 @@
+from datetime import datetime, timedelta
+
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db import transaction
 from django.forms import ModelForm
 from django.http import HttpResponseRedirect
+from django.utils.timezone import make_aware
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.views.generic.list import ListView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from tasks.filters import TaskFilter, TaskStatusChangeFilter
 from tasks.models import Task, TaskStatusChange, UserPreferences
@@ -206,3 +209,14 @@ class PreferencesView(LoginRequiredMixin, UpdateView):
     def get_object(self):
         tasks = UserPreferences.objects.get_or_create(user=self.request.user)[0]
         return tasks
+
+    def form_valid(self, form):
+        pref = UserPreferences.objects.get(user=self.request.user)
+        if form.instance.reminder_enabled:
+            current_time = datetime.now()
+            if not pref.last_sent or pref.last_sent <= make_aware(current_time - timedelta(days=1)):
+                pref.last_sent = make_aware(datetime.combine(current_time, form.instance.reminder_time) - timedelta(days=1))
+            else:
+                pref.last_sent = make_aware(datetime.combine(current_time, form.instance.reminder_time))
+            pref.save()
+        return super().form_valid(form)
